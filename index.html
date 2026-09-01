@@ -1,50 +1,88 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Space Invaders</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+    />
+    <meta name="theme-color" content="#05060a" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>Invaders from Space</title>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Bangers&family=Press+Start+2P&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap"
       rel="stylesheet"
     />
-    <link href="http://fonts.cdnfonts.com/css/8bit-wonder" rel="stylesheet" />
-    <link rel="stylesheet" href="style.css">
-    
-    <style>
-      body {
-        margin: 0;
-        font-family: "Press Start 2P", cursive;
-        font-size: 22px;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background-color: black;
-      }
-    </style>
+    <link rel="stylesheet" href="style.css" />
   </head>
-  <body>
-    
-    <div style="position: relative">
-      <p>
-      <span>SCORE:</span>
-      <span id="scoreEl">0</span>
-      <!-- <span class="gameOver">Game Over</span>
-      <span id="gameOver"></span> -->
-      </p>
 
-      <canvas></canvas>
-      <button class="buttonLeft" id="buttonLeft">◀</button>
-      <button class="buttonRight" id="buttonRight">▶︎</button>
-      <button class="buttonAttack" id="buttonAttack">⌖</button>
+  <body>
+    <div id="app">
+      <div id="frame">
+        <!-- HUD: barra do gabinete no desktop, sobreposição no topo no mobile -->
+        <header id="hud">
+          <div class="hud-block">
+            <span class="hud-label">SCORE</span>
+            <span class="hud-value" id="scoreEl">00000</span>
+          </div>
+          <div class="hud-block hud-block--end">
+            <span class="hud-label">RECORDE</span>
+            <span class="hud-value hud-value--dim" id="bestEl">00000</span>
+          </div>
+        </header>
+
+        <div id="stage">
+          <div id="screen">
+            <canvas id="game"></canvas>
+
+            <div id="overlay">
+              <p class="overlay-title">GAME OVER</p>
+              <p class="overlay-line">SCORE <span id="overlayScore">00000</span></p>
+              <p class="overlay-line overlay-line--dim">
+                RECORDE <span id="overlayBest">00000</span>
+              </p>
+              <button id="restart" class="overlay-btn">JOGAR DE NOVO</button>
+              <p class="overlay-hint">ou pressione ENTER</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- só no desktop -->
+        <footer id="hints">
+          <span class="hint"><kbd>A</kbd><kbd>D</kbd> mover</span>
+          <span class="hint-sep">·</span>
+          <span class="hint"><kbd>ESPAÇO</kbd> atirar</span>
+        </footer>
+      </div>
+
+      <!-- só no mobile -->
+      <nav id="dock" aria-label="Controles">
+        <div class="dock-move">
+          <button id="buttonLeft" class="pad" type="button" aria-label="Mover para a esquerda">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 4 7 12l8 8z" /></svg>
+          </button>
+          <button id="buttonRight" class="pad" type="button" aria-label="Mover para a direita">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8z" /></svg>
+          </button>
+        </div>
+        <button id="buttonAttack" class="pad pad--fire" type="button" aria-label="Atirar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 2 7.5 8.5h9z" />
+            <rect x="10.5" y="10" width="3" height="12" rx="1.5" />
+          </svg>
+        </button>
+      </nav>
+
+      <div id="rotate">
+        <p>GIRE O APARELHO</p>
+        <span>o jogo é em modo retrato</span>
+      </div>
     </div>
 
     <script src="./space.js"></script>
-    
-
   </body>
 </html>

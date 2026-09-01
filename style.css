@@ -1,45 +1,481 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+/* ============================================================
+   Invaders from Space · camada de apresentação
+   Dois modos: [data-mode="desktop"] e [data-mode="touch"].
+   O canvas tem resolução lógica fixa (400x660) e só é escalado.
+   ============================================================ */
 
-p {
-  position: absolute;
-  z-index: 10;
-  color: white;
-  left: 10px;
-  top: 10px;
-  margin: 0px;
-  font-size: 14px;
+:root {
+  --bg: #05060a;
+  --panel: #0a0d15;
+  --line: rgba(74, 222, 128, 0.16);
+  --ink: #dff5e8;
+  --dim: #5c7a6b;
+  --accent: #4ade80;
+  --accent-glow: rgba(74, 222, 128, 0.22);
+  --danger: #ff4d5e;
+  --font: "Press Start 2P", "Courier New", monospace;
 }
 
-button {
-  position: absolute;
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+#app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  height: 100dvh;
+}
+
+#frame {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* ---------- tela ---------- */
+
+#stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#screen {
+  position: relative;
+  overflow: hidden;
+  background: #000;
+}
+
+canvas {
   display: block;
-  color: white;
-  background-color: rgba(6, 6, 6, 0.4);
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+
+/* ---------- HUD ---------- */
+
+#hud {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+  width: 100%;
+}
+
+.hud-block {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.hud-block--end {
+  justify-content: flex-end;
+}
+
+.hud-label {
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--dim);
+}
+
+.hud-value {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: var(--accent);
+  text-shadow: 0 0 12px var(--accent-glow);
+}
+
+.hud-value--dim {
+  color: var(--ink);
+  opacity: 0.55;
+  text-shadow: none;
+}
+
+/* ---------- game over ---------- */
+
+#overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 20;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: rgba(3, 4, 8, 0.86);
+  backdrop-filter: blur(2px);
+}
+
+#overlay.is-open {
+  display: flex;
+  animation: fade 0.35s ease both;
+}
+
+@keyframes fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.overlay-title {
+  margin: 0;
+  font-size: 20px;
+  letter-spacing: 3px;
+  color: var(--danger);
+  text-shadow: 0 0 18px rgba(255, 77, 94, 0.45);
+}
+
+.overlay-line {
+  margin: 0;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--ink);
+}
+
+.overlay-line--dim {
+  color: var(--dim);
+}
+
+.overlay-line span {
+  color: var(--accent);
+}
+
+.overlay-line--dim span {
+  color: var(--dim);
+}
+
+.overlay-btn {
+  margin-top: 8px;
+  padding: 14px 18px;
+  font: inherit;
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--bg);
+  background: var(--accent);
   border: none;
-  width: 80px;
-  height: 80px;
-  border-radius: 100px;
-  font-size: 40px;
+  border-radius: 4px;
+  cursor: pointer;
+  box-shadow: 0 0 24px var(--accent-glow);
+  transition: transform 0.12s ease, filter 0.12s ease;
 }
 
-#gameOver  {
-  margin-right: 10px;
+.overlay-btn:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 4px;
 }
 
-#buttonLeft {
-  margin-top: 30px;
-  margin-left: 20px;
+.overlay-btn:hover {
+  filter: brightness(1.12);
 }
 
-#buttonRight {
-  margin-top: 30px;
-  margin-left: 120px;
+.overlay-btn:active {
+  transform: translateY(2px);
 }
 
-#buttonAttack {
-  margin-top: 30px;
-  margin-left: 300px;
-  
+.overlay-hint {
+  margin: 0;
+  font-size: 8px;
+  letter-spacing: 2px;
+  color: var(--dim);
 }
 
+/* ============================================================
+   MODO DESKTOP · gabinete de arcade centralizado
+   ============================================================ */
 
+body[data-mode="desktop"] #frame {
+  gap: 14px;
+  padding: 18px 18px 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #0c1018, #06080d);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04),
+    0 30px 80px rgba(0, 0, 0, 0.7), 0 0 70px rgba(74, 222, 128, 0.05);
+}
+
+body[data-mode="desktop"] #hud {
+  padding: 0 2px;
+}
+
+body[data-mode="desktop"] #screen {
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.1),
+    inset 0 0 90px rgba(0, 0, 0, 0.9);
+}
+
+/* varredura + vinheta: só no desktop, onde a tela é grande */
+body[data-mode="desktop"] #screen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+      180deg,
+      rgba(0, 0, 0, 0.22) 0 1px,
+      transparent 1px 3px
+    ),
+    radial-gradient(120% 100% at 50% 50%, transparent 55%, rgba(0, 0, 0, 0.5));
+  opacity: 0.55;
+}
+
+#hints {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--dim);
+}
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.hint-sep {
+  opacity: 0.4;
+}
+
+kbd {
+  display: inline-block;
+  padding: 5px 7px;
+  font: inherit;
+  font-size: 8px;
+  color: var(--ink);
+  background: #121824;
+  border: 1px solid #222c3d;
+  border-bottom-width: 2px;
+  border-radius: 3px;
+}
+
+/* no desktop não existe controle na tela */
+body[data-mode="desktop"] #dock {
+  display: none;
+}
+
+/* ============================================================
+   MODO TOUCH · tela cheia + doca de controles
+   ============================================================ */
+
+body[data-mode="touch"] #frame {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+}
+
+body[data-mode="touch"] #stage {
+  flex: 1;
+  width: 100%;
+  min-height: 0;
+  background: #000;
+}
+
+/* HUD flutua sobre o topo do jogo, respeitando o notch */
+body[data-mode="touch"] #hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 15;
+  padding: 10px 16px 22px;
+  padding-top: calc(10px + env(safe-area-inset-top));
+  background: linear-gradient(
+    180deg,
+    rgba(5, 6, 10, 0.9) 0%,
+    rgba(5, 6, 10, 0.55) 55%,
+    transparent 100%
+  );
+  pointer-events: none;
+}
+
+body[data-mode="touch"] .hud-value {
+  font-size: 12px;
+}
+
+body[data-mode="touch"] #hints {
+  display: none;
+}
+
+/* no celular o overlay cobre o HUD flutuante: some com ele em vez de
+   deixar o desfoque comer o texto */
+body[data-mode="touch"] #hud {
+  transition: opacity 0.3s ease;
+}
+
+body[data-mode="touch"].is-over #hud {
+  opacity: 0;
+}
+
+/* sem teclado no celular */
+body[data-mode="touch"] .overlay-hint {
+  display: none;
+}
+
+/* controles ficam inertes com a partida encerrada */
+body.is-over #dock {
+  opacity: 0.3;
+  pointer-events: none;
+}
+
+#dock {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 22px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(74, 222, 128, 0.1);
+  background: linear-gradient(180deg, #080b12, #04050a);
+}
+
+body[data-mode="touch"] #dock {
+  display: flex;
+}
+
+.dock-move {
+  display: flex;
+  gap: 14px;
+}
+
+.pad {
+  display: grid;
+  place-items: center;
+  width: 74px;
+  height: 74px;
+  padding: 0;
+  color: var(--ink);
+  background: rgba(20, 28, 40, 0.85);
+  border: 1px solid #2b3a4f;
+  border-radius: 18px;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.08s linear, transform 0.08s linear;
+}
+
+.pad svg {
+  width: 30px;
+  height: 30px;
+  fill: currentColor;
+}
+
+.pad.is-down {
+  background: rgba(74, 222, 128, 0.2);
+  border-color: var(--accent);
+  transform: scale(0.94);
+}
+
+.pad--fire {
+  width: 92px;
+  height: 92px;
+  color: var(--accent);
+  border-color: rgba(74, 222, 128, 0.45);
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(74, 222, 128, 0.18),
+    rgba(20, 28, 40, 0.9) 70%
+  );
+  box-shadow: 0 0 26px rgba(74, 222, 128, 0.12);
+}
+
+.pad--fire svg {
+  width: 34px;
+  height: 34px;
+}
+
+.pad--fire.is-down {
+  background: rgba(74, 222, 128, 0.34);
+  color: #05060a;
+}
+
+/* ---------- aviso de rotação ---------- */
+
+#rotate {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  background: var(--bg);
+}
+
+#rotate p {
+  margin: 0;
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--accent);
+}
+
+#rotate span {
+  font-size: 8px;
+  letter-spacing: 1px;
+  color: var(--dim);
+}
+
+@media (orientation: landscape) and (max-height: 480px) {
+  body[data-mode="touch"] #rotate {
+    display: flex;
+  }
+}
+
+/* telas pequenas: doca mais compacta */
+@media (max-height: 680px) {
+  .pad {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+  .pad--fire {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+  }
+  #dock {
+    padding: 12px 18px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #overlay.is-open {
+    animation: none;
+  }
+  .pad,
+  .overlay-btn {
+    transition: none;
+  }
+}
