@@ -11,3 +11,6 @@ desktop.ini
 # dependências / build
 node_modules/
 dist/
+
+# lixo do Git Bash no Windows
+*.stackdump
