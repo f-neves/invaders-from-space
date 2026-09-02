@@ -3,6 +3,7 @@
    Resolução lógica fixa: o jogo sempre raciocina em 400x660.
    A camada de tela só escala esse retângulo para o espaço
    disponível, respeitando o devicePixelRatio.
+   Depende de settings.js, audio.js e menu.js.
    ============================================================ */
 
 const GAME_W = 400;
@@ -12,7 +13,6 @@ const canvas = document.querySelector("#game");
 const c = canvas.getContext("2d");
 
 const appEl = document.querySelector("#app");
-const stageEl = document.querySelector("#stage");
 const screenEl = document.querySelector("#screen");
 const hudEl = document.querySelector("#hud");
 const hintsEl = document.querySelector("#hints");
@@ -20,14 +20,11 @@ const dockEl = document.querySelector("#dock");
 
 const scoreEl = document.querySelector("#scoreEl");
 const bestEl = document.querySelector("#bestEl");
-const overlayEl = document.querySelector("#overlay");
-const overlayScoreEl = document.querySelector("#overlayScore");
-const overlayBestEl = document.querySelector("#overlayBest");
-const restartEl = document.querySelector("#restart");
 
 const buttonLeft = document.querySelector("#buttonLeft");
 const buttonRight = document.querySelector("#buttonRight");
 const buttonAttack = document.querySelector("#buttonAttack");
+const buttonPause = document.querySelector("#buttonPause");
 
 /* ---------- constantes de arte ---------- */
 
@@ -39,6 +36,16 @@ const CELL_H = (32 + 5) * SPRITE_SCALE;
 const PLAYER_W = 50;
 const PLAYER_H = 48;
 
+/* ---------- estados ---------- */
+
+const MENU = "menu";
+const PLAYING = "playing";
+const PAUSED = "paused";
+const OVER = "over";
+
+let state = MENU;
+let rules = Settings.difficulty();
+
 /* ============================================================
    1. Modo de entrada e escala de tela
    ============================================================ */
@@ -46,12 +53,13 @@ const PLAYER_H = 48;
 const coarsePointer = window.matchMedia("(hover: none) and (pointer: coarse)");
 let isTouch = coarsePointer.matches;
 
-// altura do HUD convertida para unidades logicas: no mobile ele flutua
-// sobre o jogo, entao os invasores precisam nascer abaixo dele
+// altura do HUD convertida para unidades lógicas: no celular ele flutua
+// sobre o jogo, então os invasores precisam nascer abaixo dele
 let topInset = 0;
 
 function applyMode() {
   document.body.dataset.mode = isTouch ? "touch" : "desktop";
+  UI.setTouch(isTouch);
 }
 
 function resizeScreen() {
@@ -91,14 +99,10 @@ function resizeScreen() {
   topInset = isTouch ? Math.round(hudEl.offsetHeight / fit) : 0;
 }
 
-function refreshLayout() {
-  applyMode();
-  resizeScreen();
-}
-
 coarsePointer.addEventListener("change", (event) => {
   isTouch = event.matches;
-  refreshLayout();
+  applyMode();
+  resizeScreen();
 });
 
 window.addEventListener("resize", resizeScreen);
@@ -109,32 +113,8 @@ if (window.visualViewport) {
   window.visualViewport.addEventListener("resize", resizeScreen);
 }
 
-applyMode();
-resizeScreen();
-// a fonte muda a altura do HUD depois de carregar
-if (document.fonts) document.fonts.ready.then(resizeScreen);
-
 /* ============================================================
-   2. Áudio
-   ============================================================ */
-
-const laserPool = Array.from({ length: 6 }, () => {
-  const audio = new Audio("audio/laser.wav");
-  audio.volume = 0.14;
-  return audio;
-});
-let laserIndex = 0;
-
-function playLaser() {
-  const audio = laserPool[laserIndex];
-  laserIndex = (laserIndex + 1) % laserPool.length;
-  audio.currentTime = 0;
-  const played = audio.play();
-  if (played) played.catch(() => {});
-}
-
-/* ============================================================
-   3. Entidades
+   2. Entidades
    ============================================================ */
 
 class Player {
@@ -144,10 +124,8 @@ class Player {
     this.velocity = { x: 0, y: 0 };
     this.opacity = 1;
     this.image = null;
-    this.position = {
-      x: GAME_W / 2 - this.width / 2,
-      y: GAME_H - this.height - 28,
-    };
+    this.position = { x: 0, y: 0 };
+    this.reset();
 
     const image = new Image();
     image.src = "./img/player.png";
@@ -156,8 +134,15 @@ class Player {
     };
   }
 
+  reset() {
+    this.position.x = GAME_W / 2 - this.width / 2;
+    this.position.y = GAME_H - this.height - 28;
+    this.velocity.x = 0;
+    this.opacity = 1;
+  }
+
   draw() {
-    if (!this.image) return;
+    if (!this.image || this.opacity <= 0) return;
     c.save();
     c.globalAlpha = this.opacity;
     c.drawImage(
@@ -290,9 +275,10 @@ class Invader {
           x: this.position.x + this.width / 2,
           y: this.position.y + this.height,
         },
-        velocity: { x: 0, y: 6 },
+        velocity: { x: 0, y: rules.shotSpeed },
       })
     );
+    Sound.play("enemy");
   }
 }
 
@@ -307,7 +293,10 @@ class Grid {
       x: Math.random() * Math.max(0, GAME_W - this.width),
       y: topInset,
     };
-    this.velocity = { x: 2.6, y: 0 };
+    this.velocity = {
+      x: Math.random() < 0.5 ? -rules.invaderSpeed : rules.invaderSpeed,
+      y: 0,
+    };
     this.invaders = [];
 
     for (let i = 0; i < columns; i++) {
@@ -332,7 +321,11 @@ class Grid {
     const right = this.position.x + this.width;
     if (right >= GAME_W || this.position.x <= 0) {
       this.velocity.x = -this.velocity.x;
-      this.velocity.y = 26;
+      this.velocity.y = rules.dropStep;
+      this.position.x = Math.max(
+        0,
+        Math.min(GAME_W - this.width, this.position.x)
+      );
     }
   }
 
@@ -347,10 +340,19 @@ class Grid {
     this.position.x = minX;
     this.width = maxX - minX;
   }
+
+  // base do bloco vivo, para saber quando os invasores passaram da nave
+  lowestY() {
+    let lowest = -Infinity;
+    for (const invader of this.invaders) {
+      lowest = Math.max(lowest, invader.position.y + invader.height);
+    }
+    return lowest;
+  }
 }
 
 /* ============================================================
-   4. Estado
+   3. Estado da partida
    ============================================================ */
 
 const player = new Player();
@@ -365,32 +367,29 @@ const keys = {
   fire: { pressed: false },
 };
 
-const game = { over: false, active: true };
-
 let frames = 0;
-let randomInterval = 500 + Math.floor(Math.random() * 500);
+let spawnInterval = 500;
 let score = 0;
-let best = Number(localStorage.getItem("invaders.best") || 0);
+let lastFiredAt = 0;
 
 const pad = (value) => String(value).padStart(5, "0");
 
 function renderScore() {
   scoreEl.textContent = pad(score);
-  bestEl.textContent = pad(best);
+  bestEl.textContent = pad(Settings.best());
 }
-renderScore();
 
-/* ---------- estrelas de fundo ---------- */
-
-for (let i = 0; i < 80; i++) {
-  particles.push(
-    new Particle({
-      position: { x: Math.random() * GAME_W, y: Math.random() * GAME_H },
-      velocity: { x: 0, y: 0.15 + Math.random() * 0.3 },
-      radius: Math.random() * 1.8,
-      color: "white",
-    })
-  );
+function seedStars() {
+  for (let i = 0; i < 80; i++) {
+    particles.push(
+      new Particle({
+        position: { x: Math.random() * GAME_W, y: Math.random() * GAME_H },
+        velocity: { x: 0, y: 0.15 + Math.random() * 0.3 },
+        radius: Math.random() * 1.8,
+        color: "white",
+      })
+    );
+  }
 }
 
 function createParticles({ object, fades, color }) {
@@ -413,20 +412,102 @@ function createParticles({ object, fades, color }) {
   }
 }
 
+function nextSpawnInterval() {
+  return rules.spawnMin + Math.floor(Math.random() * rules.spawnVar);
+}
+
+function clearKeys() {
+  keys.left.pressed = false;
+  keys.right.pressed = false;
+  keys.fire.pressed = false;
+  document
+    .querySelectorAll(".pad.is-down")
+    .forEach((element) => element.classList.remove("is-down"));
+}
+
+function setState(next) {
+  state = next;
+  document.body.dataset.state = next;
+  if (next !== PLAYING) clearKeys();
+}
+
+/* ============================================================
+   4. Transições
+   ============================================================ */
+
+function resetField() {
+  projectiles.length = 0;
+  invaderProjectiles.length = 0;
+  grids.length = 0;
+  particles.length = 0;
+  seedStars();
+  score = 0;
+  frames = 0;
+  lastFiredAt = 0;
+  spawnInterval = nextSpawnInterval();
+  renderScore();
+}
+
+function startRun() {
+  rules = Settings.difficulty();
+  resetField();
+  player.reset();
+  Sound.wantMusic(true);
+  // o painel nunca pode ficar aberto sobre uma partida em curso
+  UI.hide();
+  setState(PLAYING);
+}
+
+function pauseRun() {
+  if (state !== PLAYING) return;
+  setState(PAUSED);
+  Sound.stopMusic();
+  UI.show("pause");
+}
+
+function resumeRun() {
+  if (state !== PAUSED) return;
+  UI.hide();
+  setState(PLAYING);
+  Sound.wantMusic(true);
+}
+
+function quitToMenu() {
+  Sound.wantMusic(false);
+  rules = Settings.difficulty();
+  resetField();
+  setState(MENU);
+}
+
+function endRun() {
+  if (state !== PLAYING) return;
+
+  player.opacity = 0;
+  createParticles({ object: player, color: "grey", fades: true });
+  Sound.play("over");
+  Sound.vibrate([40, 60, 90]);
+  Sound.wantMusic(false);
+  setState(OVER);
+
+  const isRecord = Settings.recordScore(score);
+  renderScore();
+
+  setTimeout(() => {
+    if (state !== OVER) return;
+    UI.showOver({ score, best: Settings.best(), isRecord });
+  }, 1100);
+}
+
 /* ============================================================
    5. Tiro do jogador
    ============================================================ */
 
-const FIRE_DELAY = 200;
-const MAX_PROJECTILES = 3;
-let lastFiredAt = 0;
-
 function fireProjectile() {
-  if (game.over || !player.image) return;
+  if (state !== PLAYING || !player.image) return;
 
   const now = performance.now();
-  if (now - lastFiredAt < FIRE_DELAY) return;
-  if (projectiles.length >= MAX_PROJECTILES) return;
+  if (now - lastFiredAt < rules.fireDelay) return;
+  if (projectiles.length >= rules.maxShots) return;
 
   projectiles.push(
     new Projectile({
@@ -438,44 +519,11 @@ function fireProjectile() {
     })
   );
   lastFiredAt = now;
-  playLaser();
+  Sound.play("laser");
 }
 
 /* ============================================================
-   6. Fim de jogo
-   ============================================================ */
-
-function endGame() {
-  if (game.over) return;
-  game.over = true;
-  player.opacity = 0;
-
-  createParticles({ object: player, color: "grey", fades: true });
-
-  if (score > best) {
-    best = score;
-    localStorage.setItem("invaders.best", String(best));
-    renderScore();
-  }
-
-  setTimeout(() => {
-    game.active = false;
-    document.body.classList.add("is-over");
-    overlayScoreEl.textContent = pad(score);
-    overlayBestEl.textContent = pad(best);
-    overlayEl.classList.add("is-open");
-    restartEl.focus();
-  }, 1200);
-}
-
-function restart() {
-  window.location.reload();
-}
-
-restartEl.addEventListener("click", restart);
-
-/* ============================================================
-   7. Colisões
+   6. Colisões
    ============================================================ */
 
 function hitsPlayer(projectile) {
@@ -484,6 +532,15 @@ function hitsPlayer(projectile) {
     projectile.position.y <= player.position.y + player.height &&
     projectile.position.x + projectile.width >= player.position.x &&
     projectile.position.x <= player.position.x + player.width
+  );
+}
+
+function invaderHitsPlayer(invader) {
+  return (
+    invader.position.y + invader.height >= player.position.y &&
+    invader.position.y <= player.position.y + player.height &&
+    invader.position.x + invader.width >= player.position.x &&
+    invader.position.x <= player.position.x + player.width
   );
 }
 
@@ -499,17 +556,18 @@ function hitsInvader(projectile, invader) {
 }
 
 /* ============================================================
-   8. Loop
+   7. Loop
    ============================================================ */
 
-function animate() {
-  if (!game.active) return;
-  requestAnimationFrame(animate);
+function drawFrozen() {
+  particles.forEach((particle) => particle.draw());
+  player.draw();
+  invaderProjectiles.forEach((shot) => shot.draw());
+  projectiles.forEach((shot) => shot.draw());
+  grids.forEach((grid) => grid.invaders.forEach((invader) => invader.draw()));
+}
 
-  c.fillStyle = "black";
-  c.fillRect(0, 0, GAME_W, GAME_H);
-
-  // estrelas e explosões
+function updateParticles() {
   for (let i = particles.length - 1; i >= 0; i--) {
     const particle = particles[i];
     if (particle.opacity <= 0) {
@@ -522,10 +580,26 @@ function animate() {
     }
     particle.update();
   }
+}
+
+/* no menu os invasores desfilam ao fundo, sem nave e sem tiro */
+function updateAttract() {
+  for (let g = grids.length - 1; g >= 0; g--) {
+    const grid = grids[g];
+    grid.update();
+    grid.invaders.forEach((invader) => invader.update(grid.velocity));
+    if (grid.lowestY() > GAME_H) grids.splice(g, 1);
+  }
+
+  if (grids.length < 2 && frames % 220 === 0) grids.push(new Grid());
+  frames++;
+}
+
+function updatePlay() {
+  const playable = state === PLAYING;
 
   player.update();
 
-  // tiros inimigos
   for (let i = invaderProjectiles.length - 1; i >= 0; i--) {
     const shot = invaderProjectiles[i];
     if (shot.position.y >= GAME_H) {
@@ -533,13 +607,13 @@ function animate() {
       continue;
     }
     shot.update();
-    if (!game.over && hitsPlayer(shot)) {
+    if (playable && hitsPlayer(shot)) {
       invaderProjectiles.splice(i, 1);
-      endGame();
+      endRun();
+      return;
     }
   }
 
-  // tiros do jogador
   for (let i = projectiles.length - 1; i >= 0; i--) {
     const shot = projectiles[i];
     if (shot.position.y + shot.radius <= 0) {
@@ -549,12 +623,11 @@ function animate() {
     shot.update();
   }
 
-  // grids de invasores
   for (let g = grids.length - 1; g >= 0; g--) {
     const grid = grids[g];
     grid.update();
 
-    if (frames % 100 === 0 && grid.invaders.length > 0) {
+    if (playable && frames % rules.shotEvery === 0 && grid.invaders.length) {
       grid.invaders[Math.floor(Math.random() * grid.invaders.length)].shoot(
         invaderProjectiles
       );
@@ -566,6 +639,11 @@ function animate() {
       const invader = grid.invaders[i];
       invader.update(grid.velocity);
 
+      if (playable && invaderHitsPlayer(invader)) {
+        endRun();
+        return;
+      }
+
       for (let j = projectiles.length - 1; j >= 0; j--) {
         if (!hitsInvader(projectiles[j], invader)) continue;
         projectiles.splice(j, 1);
@@ -574,40 +652,59 @@ function animate() {
         score += 10;
         renderScore();
         createParticles({ object: invader, fades: true });
+        Sound.play("explode");
+        Sound.vibrate(12);
         break;
       }
     }
 
-    if (grid.invaders.length === 0) {
-      grids.splice(g, 1);
-    } else if (lostInvader) {
-      grid.refreshBounds();
+    // invasores que cruzam a base da tela encerram a partida
+    if (playable && grid.invaders.length && grid.lowestY() >= GAME_H) {
+      endRun();
+      return;
     }
+
+    if (grid.invaders.length === 0) grids.splice(g, 1);
+    else if (lostInvader) grid.refreshBounds();
   }
 
-  // movimento do jogador
-  if (!game.over && keys.left.pressed) {
-    player.velocity.x = -8;
-  } else if (!game.over && keys.right.pressed) {
-    player.velocity.x = 8;
+  if (playable) {
+    if (keys.left.pressed) player.velocity.x = -8;
+    else if (keys.right.pressed) player.velocity.x = 8;
+    else player.velocity.x = 0;
+
+    if (keys.fire.pressed) fireProjectile();
   } else {
     player.velocity.x = 0;
   }
 
-  if (keys.fire.pressed) fireProjectile();
-
-  if (frames % randomInterval === 0) {
+  if (frames % spawnInterval === 0) {
     grids.push(new Grid());
-    randomInterval = 500 + Math.floor(Math.random() * 500);
+    spawnInterval = nextSpawnInterval();
     frames = 0;
   }
   frames++;
 }
 
-animate();
+function animate() {
+  requestAnimationFrame(animate);
+
+  c.fillStyle = "black";
+  c.fillRect(0, 0, GAME_W, GAME_H);
+
+  if (state === PAUSED) {
+    drawFrozen();
+    return;
+  }
+
+  updateParticles();
+
+  if (state === MENU) updateAttract();
+  else updatePlay();
+}
 
 /* ============================================================
-   9. Entrada: teclado (web) e toque (mobile)
+   8. Entrada
    ============================================================ */
 
 const KEY_MAP = {
@@ -621,15 +718,14 @@ const KEY_MAP = {
 };
 
 window.addEventListener("keydown", (event) => {
-  if (game.over) {
-    // se o botão está com foco ele já responde a Enter sozinho
-    const buttonHasFocus = document.activeElement === restartEl;
-    if ((event.key === "Enter" || event.key === " ") && !buttonHasFocus) {
-      event.preventDefault();
-      restart();
-    }
+  if (event.key === "Escape" && state === PLAYING) {
+    event.preventDefault();
+    pauseRun();
     return;
   }
+
+  if (state !== PLAYING) return;
+
   const action = KEY_MAP[event.key];
   if (!action) return;
   event.preventDefault();
@@ -641,23 +737,19 @@ window.addEventListener("keydown", (event) => {
 
 window.addEventListener("keyup", (event) => {
   const action = KEY_MAP[event.key];
-  if (!action) return;
-  keys[action].pressed = false;
+  if (action) keys[action].pressed = false;
 });
 
 // o navegador perde o keyup se a aba sai de foco
-window.addEventListener("blur", () => {
-  keys.left.pressed = false;
-  keys.right.pressed = false;
-  keys.fire.pressed = false;
+window.addEventListener("blur", clearKeys);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden && state === PLAYING) pauseRun();
 });
-
-/* ---------- botões touch ---------- */
 
 function bindHold(element, action) {
   const press = (event) => {
     event.preventDefault();
-    if (game.over) return;
+    if (state !== PLAYING) return;
     keys[action].pressed = true;
     element.classList.add("is-down");
     // um toque curto pode começar e terminar dentro do mesmo frame
@@ -688,9 +780,35 @@ bindHold(buttonLeft, "left");
 bindHold(buttonRight, "right");
 bindHold(buttonAttack, "fire");
 
+buttonPause.addEventListener("click", pauseRun);
+
 // impede o zoom por duplo toque durante a partida
-document.addEventListener(
-  "dblclick",
-  (event) => event.preventDefault(),
-  { passive: false }
-);
+document.addEventListener("dblclick", (event) => event.preventDefault(), {
+  passive: false,
+});
+
+/* ============================================================
+   9. Início
+   ============================================================ */
+
+UI.init({
+  onPlay: startRun,
+  onResume: resumeRun,
+  onQuit: quitToMenu,
+  onSettingChange: (key) => {
+    if (key === "difficulty") {
+      rules = Settings.difficulty();
+      renderScore();
+    }
+  },
+});
+
+applyMode();
+resizeScreen();
+if (document.fonts) document.fonts.ready.then(resizeScreen);
+
+seedStars();
+renderScore();
+setState(MENU);
+UI.show("menu");
+animate();

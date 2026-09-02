@@ -39,14 +39,83 @@
           <div id="screen">
             <canvas id="game"></canvas>
 
-            <div id="overlay">
-              <p class="overlay-title">GAME OVER</p>
-              <p class="overlay-line">SCORE <span id="overlayScore">00000</span></p>
-              <p class="overlay-line overlay-line--dim">
-                RECORDE <span id="overlayBest">00000</span>
-              </p>
-              <button id="restart" class="overlay-btn">JOGAR DE NOVO</button>
-              <p class="overlay-hint">ou pressione ENTER</p>
+            <!-- todas as telas de menu vivem aqui, uma visível por vez -->
+            <div id="panel" data-view="menu">
+              <section class="screen" data-screen="menu">
+                <h1 class="title">
+                  <span class="title-top">INVADERS</span>
+                  <span class="title-bottom">FROM SPACE</span>
+                </h1>
+                <div class="menu-list">
+                  <button class="item item--go" data-nav data-action="play">
+                    JOGAR
+                  </button>
+                  <button class="item" data-nav data-action="options">
+                    OPÇÕES
+                  </button>
+                  <button class="item" data-nav data-action="scores">
+                    RECORDES
+                  </button>
+                </div>
+                <p class="foot">
+                  <span id="menuDifficulty">NORMAL</span>
+                  <span class="foot-sep">·</span>
+                  RECORDE <span id="menuBest">00000</span>
+                </p>
+              </section>
+
+              <section class="screen" data-screen="options">
+                <h2 class="heading">OPÇÕES</h2>
+                <div class="option-list" id="optionList"></div>
+                <button class="item item--back" data-nav data-action="back">
+                  VOLTAR
+                </button>
+              </section>
+
+              <section class="screen" data-screen="scores">
+                <h2 class="heading">RECORDES</h2>
+                <ul class="score-table" id="scoreTable"></ul>
+                <div class="menu-list">
+                  <button class="item item--danger" data-nav data-action="reset">
+                    ZERAR RECORDES
+                  </button>
+                  <button class="item item--back" data-nav data-action="back">
+                    VOLTAR
+                  </button>
+                </div>
+              </section>
+
+              <section class="screen" data-screen="pause">
+                <h2 class="heading">PAUSADO</h2>
+                <div class="menu-list">
+                  <button class="item item--go" data-nav data-action="resume">
+                    CONTINUAR
+                  </button>
+                  <button class="item" data-nav data-action="options">
+                    OPÇÕES
+                  </button>
+                  <button class="item item--danger" data-nav data-action="quit">
+                    SAIR PARA O MENU
+                  </button>
+                </div>
+              </section>
+
+              <section class="screen" data-screen="over">
+                <h2 class="heading heading--danger">GAME OVER</h2>
+                <p class="foot foot--big">
+                  SCORE <span id="overScore">00000</span>
+                </p>
+                <p class="foot" id="overBestLine">
+                  RECORDE <span id="overBest">00000</span>
+                </p>
+                <p class="badge" id="overBadge" hidden>NOVO RECORDE</p>
+                <div class="menu-list">
+                  <button class="item item--go" data-nav data-action="play">
+                    JOGAR DE NOVO
+                  </button>
+                  <button class="item" data-nav data-action="quit">MENU</button>
+                </div>
+              </section>
             </div>
           </div>
         </div>
@@ -56,6 +125,8 @@
           <span class="hint"><kbd>A</kbd><kbd>D</kbd> mover</span>
           <span class="hint-sep">·</span>
           <span class="hint"><kbd>ESPAÇO</kbd> atirar</span>
+          <span class="hint-sep">·</span>
+          <span class="hint"><kbd>ESC</kbd> pausar</span>
         </footer>
       </div>
 
@@ -69,6 +140,12 @@
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4l8 8-8 8z" /></svg>
           </button>
         </div>
+        <button id="buttonPause" class="pad pad--small" type="button" aria-label="Pausar">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <rect x="7" y="5" width="4" height="14" rx="1" />
+            <rect x="13" y="5" width="4" height="14" rx="1" />
+          </svg>
+        </button>
         <button id="buttonAttack" class="pad pad--fire" type="button" aria-label="Atirar">
           <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="M12 2 7.5 8.5h9z" />
@@ -83,6 +160,9 @@
       </div>
     </div>
 
+    <script src="./settings.js"></script>
+    <script src="./audio.js"></script>
+    <script src="./menu.js"></script>
     <script src="./space.js"></script>
   </body>
 </html>
