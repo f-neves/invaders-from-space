@@ -102,6 +102,6 @@ Feito: adaptação mobile/web, HUD por plataforma, menu inicial com opções e
 recordes, pausa, máquina de estados, áudio completo, dificuldade em três níveis,
 colisão invasor x nave e derrota por invasão.
 
-Próximo: delta time no loop (hoje o jogo roda mais rápido em monitor de 144 Hz),
-vidas, dificuldade progressiva dentro da partida e uso dos áudios `bomb` e
-`bonus`, que continuam sem feature.
+O que vem depois está em **[`MELHORIAS.md`](MELHORIAS.md)**, com a ordem
+recomendada, o porquê de cada item e onde mexer. Começa por delta time no loop,
+já que hoje o jogo roda mais rápido em monitor de 144 Hz.
