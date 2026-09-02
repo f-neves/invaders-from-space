@@ -1,5 +1,7 @@
 # Invaders from Space
 
+**[Jogar agora](https://f-neves.github.io/invaders-from-space/)** · publicado pelo GitHub Pages a partir do `main`.
+
 Shoot'em up vertical em Canvas 2D, sem dependências e sem build. É só servir a
 pasta por HTTP.
 
