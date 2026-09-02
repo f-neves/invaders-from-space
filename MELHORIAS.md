@@ -271,6 +271,24 @@ com teclado e com toque.
 Barato com um gerador pseudoaleatório semeado pela data, e é um motivo real
 para voltar amanhã. Depende do item 2.
 
+### 24. Embutir a fonte Press Start 2P
+
+- [ ] Baixar o `.woff2` e servir do próprio repositório.
+
+Hoje o `index.html` puxa a fonte do Google Fonts. É a única dependência externa
+de um jogo que, fora isso, roda inteiro sem rede: se o Google demora, o texto
+pisca antes de assentar, e sem conexão a fonte simplesmente não vem. Também é
+pré-requisito do item de PWA, porque um service worker não garante offline o que
+vem de outro domínio.
+
+### 25. Prévia de link
+
+- [ ] Tags Open Graph e uma captura de tela como `og:image`.
+
+Mandar o endereço no WhatsApp mostra só a URL crua, sem título nem imagem.
+Resolve com quatro tags no `<head>` e um PNG no repositório. O custo é commitar
+uma imagem nova em cada jogo, o que vale decidir antes de fazer.
+
 ---
 
 ## Armadilhas conhecidas
